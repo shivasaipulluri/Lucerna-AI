@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "setup-prisma": "ts-node scripts/setup-prisma.ts",
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate --schema=prisma/schema.prisma && prisma generate --schema=prisma/model-schema.prisma",
     "add-column": "ts-node scripts/add-tailoring-mode.ts",
     "add-tailoring-to-resumes": "ts-node scripts/add-tailoring-mode-to-resumes.ts",
     "create-analytics-table": "ts-node scripts/create-tailoring-analytics-table.ts",
