@@ -1,3 +1,6 @@
+// ✅ Add this line first
+export const dynamic = "force-dynamic";
+
 import { modelPrisma } from "@/lib/model-prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
