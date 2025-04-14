@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient } from "../generated/primary_client";
 
 async function main() {
   console.log("Updating User schema with new profile fields...")
@@ -28,3 +28,4 @@ main().catch((e) => {
   console.error("Script error:", e)
   process.exit(1)
 })
+

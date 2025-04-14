@@ -1,4 +1,4 @@
-import { PrismaClient as ModelPrismaClient } from "@/model-client"
+import { PrismaClient as ModelPrismaClient } from "../generated/model_client"
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
