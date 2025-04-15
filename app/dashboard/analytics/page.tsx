@@ -6,11 +6,23 @@ import { Footer } from "@/components/footer"
 import { getTailoringAnalytics } from "./actions"
 import { Loader2, BarChart2 } from "lucide-react"
 
+//added to top of file by creating AnalyticsEntry type
+type AnalyticsEntry = {
+  id: string
+  tailoring_mode: string
+  ats_score: number
+  jd_score: number
+  iterations: number
+  golden_passed: boolean
+  created_at: string
+}
+
+
 // Import the standard shadcn Card components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function AnalyticsPage() {
-  const [analytics, setAnalytics] = useState<any[]>([])
+  const [analytics, setAnalytics] = useState<AnalyticsEntry[]>([])
   const [summary, setSummary] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -115,15 +127,23 @@ export default function AnalyticsPage() {
 
   // Calculate statistics for each mode
   const modeStats = Object.entries(grouped).map(([mode, entries]) => {
+    const typedEntries = entries as {
+      ats_score: number
+      jd_score: number
+      iterations: number
+      golden_passed: boolean
+    }[]
+  
     return {
       mode,
-      count: entries.length,
-      avgAts: entries.reduce((sum, e) => sum + e.ats_score, 0) / entries.length,
-      avgJd: entries.reduce((sum, e) => sum + e.jd_score, 0) / entries.length,
-      avgIterations: entries.reduce((sum, e) => sum + e.iterations, 0) / entries.length,
-      goldenPassRate: (entries.filter((e) => e.golden_passed).length / entries.length) * 100,
+      count: typedEntries.length,
+      avgAts: typedEntries.reduce((sum, e) => sum + e.ats_score, 0) / typedEntries.length,
+      avgJd: typedEntries.reduce((sum, e) => sum + e.jd_score, 0) / typedEntries.length,
+      avgIterations: typedEntries.reduce((sum, e) => sum + e.iterations, 0) / typedEntries.length,
+      goldenPassRate: (typedEntries.filter((e) => e.golden_passed).length / typedEntries.length) * 100,
     }
   })
+  
 
   return (
     <div className="flex flex-col min-h-screen">

@@ -495,7 +495,9 @@ export async function logDownloadResumeAnalytics(
   metadata: Record<string, any> = {},
 ): Promise<boolean> {
   // Add debug log at entry point
-  console.log(`[MODEL LOG] ENTRY: logDownloadResumeAnalytics(${userId}, ${resumeId}, v${version}, ${format})`)
+  console.log(`[MODEL LOG] ENTRY: logDownloadResu  {
+  // Add debug log at entry point
+  console.log(\`[MODEL LOG] ENTRY: logDownloadResumeAnalytics(${userId}, ${resumeId}, v${version}, ${format})`)
 
   try {
     if (!userId) {

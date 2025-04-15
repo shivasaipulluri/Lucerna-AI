@@ -9,9 +9,7 @@ export async function GET(request: Request) {
   const next = searchParams.get("next") ?? "/"
 
   if (code) {
-    const cookieStore = cookies()
     const requestUrl = new URL(request.url)
-
     const supabase = await createClient()
 
     console.log("Callback - Exchanging code for session")
@@ -36,7 +34,7 @@ export async function GET(request: Request) {
 
     console.log("Callback - Redirecting to:", next)
     // Create a response with the redirect
-    const response = NextResponse.redirect(new URL(next, requestUrl.origin))
+    let response = NextResponse.redirect(new URL(next, requestUrl.origin))
 
     // Set the session cookies
     if (data?.session) {
@@ -44,13 +42,13 @@ export async function GET(request: Request) {
       const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: "lax" as const, // Ensure sameSite is one of the allowed values
         maxAge: expires_in,
         path: "/",
       }
 
-      cookieStore.set("sb-access-token", access_token, cookieOptions)
-      cookieStore.set("sb-refresh-token", refresh_token, cookieOptions)
+      response.cookies.set("sb-access-token", access_token, cookieOptions)
+      response.cookies.set("sb-refresh-token", refresh_token, cookieOptions)
     }
 
     return response

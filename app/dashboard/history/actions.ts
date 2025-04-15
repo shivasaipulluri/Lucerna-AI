@@ -1,7 +1,7 @@
 "use server"
 
+import { primaryPrisma as prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
-import { prisma } from "@/lib/prisma"
 import { logInteractionDirect } from "@/lib/model-logger"
 import { revalidatePath } from "next/cache"
 

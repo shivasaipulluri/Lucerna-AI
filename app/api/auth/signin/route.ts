@@ -2,7 +2,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 import { ensureUserExists } from "@/lib/ensure-user"
-import { ensureModelUserExists } from "@/lib/model-logger" // Import the direct function
+import { ensureModelUserExists } from "@/lib/model-logger"
 
 export async function POST(request: NextRequest) {
   try {

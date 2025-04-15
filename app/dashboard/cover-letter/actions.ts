@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { prisma } from "@/lib/prisma"
+import { primaryPrisma as prisma } from "@/lib/prisma"
 import { incrementUsage } from "@/lib/usage"
 import { logResumeEventDirect } from "@/lib/model-logger"
 import { revalidatePath } from "next/cache"

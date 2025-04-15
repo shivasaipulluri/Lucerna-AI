@@ -1,6 +1,6 @@
 "use server"
 
-import { prisma } from "@/lib/prisma"
+import { primaryPrisma as prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 
 export async function getTailoringAnalytics() {
@@ -19,7 +19,7 @@ export async function getTailoringAnalytics() {
 
     // Check if the tailoring_analytics table exists
     try {
-      const tableExists = await prisma.$queryRaw`
+      const tableExists = await prisma.$queryRaw<{ exists: boolean }[]>`
         SELECT EXISTS (
           SELECT FROM information_schema.tables 
           WHERE table_schema = 'public' 

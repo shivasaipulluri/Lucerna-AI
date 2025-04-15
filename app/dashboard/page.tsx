@@ -1,5 +1,6 @@
 import { NavBar } from "@/components/nav-bar"
 import { DashboardClient } from "./dashboard-client"
+import { Footer } from "@/components/footer"
 
 export default async function DashboardPage({
   searchParams,
@@ -16,6 +17,7 @@ export default async function DashboardPage({
       <main className="flex-1">
         <DashboardClient initialTab={initialTab} />
       </main>
+      <Footer />
     </div>
   )
 }

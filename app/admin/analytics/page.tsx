@@ -1,8 +1,20 @@
-// ✅ Add this line first
-export const dynamic = "force-dynamic";
-
 import { modelPrisma } from "@/lib/model-prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+// Define the types for the event and interaction objects
+interface ResumeEvent {
+  id: string
+  event_type: string
+  timestamp: Date
+  resume_id?: string
+}
+
+interface Interaction {
+  id: string
+  element: string
+  timestamp: Date
+  action: string
+}
 
 export default async function AnalyticsDashboardPage() {
   // Get counts from the model database
@@ -16,7 +28,7 @@ export default async function AnalyticsDashboardPage() {
     orderBy: {
       timestamp: "desc",
     },
-  })
+  }) as ResumeEvent[] // Cast to ResumeEvent[]
 
   // Get recent interactions
   const recentInteractions = await modelPrisma.interaction.findMany({
@@ -24,15 +36,15 @@ export default async function AnalyticsDashboardPage() {
     orderBy: {
       timestamp: "desc",
     },
-  })
+  }) as Interaction[] // Cast to Interaction[]
 
   // Get event type distribution - Fix the table name to use snake_case
-  const eventTypeDistribution = await modelPrisma.$queryRaw`
-   SELECT "event_type", COUNT(*) as count
-   FROM "resume_events"
-   GROUP BY "event_type"
-   ORDER BY count DESC
- `
+  const eventTypeDistribution = await modelPrisma.$queryRaw<{ event_type: string; count: number }[]>`
+    SELECT "event_type", COUNT(*) as count
+    FROM "resume_events"
+    GROUP BY "event_type"
+    ORDER BY count DESC
+  `
 
   return (
     <div className="container mx-auto py-8">
@@ -75,7 +87,7 @@ export default async function AnalyticsDashboardPage() {
           <CardContent>
             <ul className="space-y-2">
               {Array.isArray(eventTypeDistribution) &&
-                eventTypeDistribution.map((item: any) => (
+                eventTypeDistribution.map((item) => (
                   <li key={item.event_type} className="flex justify-between">
                     <span>{item.event_type}</span>
                     <span className="font-bold">{item.count}</span>

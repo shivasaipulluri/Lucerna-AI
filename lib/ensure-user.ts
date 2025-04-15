@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma"
+import { primaryPrisma as prisma } from "@/lib/prisma"
 
 /**
  * Ensures a user exists in the database, handling potential email conflicts

@@ -2,7 +2,7 @@
 
 import { submitResume } from "./actions"
 import { createClient } from "@/lib/supabase/server"
-import { logResumeEventDirect } from "@/lib/model-logger" // Import direct logging functions
+import { logResumeEventDirect } from "@/lib/model-logger"
 
 /**
  * Wrapper for the submitResume function that adds analytics logging

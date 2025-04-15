@@ -1,4 +1,4 @@
-import { modelPrisma } from "../lib/model-prisma"
+import { modelPrisma } from "@/lib/model-prisma"
 
 async function main() {
   try {

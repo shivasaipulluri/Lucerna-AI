@@ -99,18 +99,18 @@ export default function ProfilePage() {
           setFormData((prevData) => {
             // Only update if data is different to avoid re-renders
             if (
-              prevData.fullName === result.data.fullName &&
+              prevData.fullName === result.data.full_name &&
               prevData.email === result.data.email &&
-              prevData.tailoringMode === result.data.tailoringMode
+              prevData.tailoringMode === result.data.tailoring_mode
             ) {
               return prevData
             }
 
             return {
-              fullName: result.data.fullName || "",
+              fullName: result.data.full_name || "",
               phone: result.data.phone || "",
               country: result.data.country || "",
-              linkedIn: result.data.linkedIn || "",
+              linkedIn: result.data.linkedin || "",
               company: result.data.company || "",
               position: result.data.position || "",
               education: result.data.education || "",
@@ -172,7 +172,7 @@ export default function ProfilePage() {
       const originalProfile = await getUserProfile()
       if (originalProfile.success && originalProfile.data) {
         // Check if tailoring mode actually changed
-        if (originalProfile.data.tailoringMode === formData.tailoringMode) {
+        if (originalProfile.data.tailoring_mode === formData.tailoringMode) {
           toast({
             title: "No Changes Detected",
             description: "Your tailoring mode is already set to this value.",

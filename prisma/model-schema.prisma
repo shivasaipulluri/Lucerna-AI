@@ -1,9 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
-  output   = "../model-client"
-  engineType      = "binary"            // 💥 Add this line
-
+  binaryTargets = ["rhel-openssl-3.0.x", "native"]
 }
 
 datasource db {
@@ -95,7 +92,7 @@ model Resume {
 }
 
 model SavedResume {
-  id         String   @id @default(uuid()) //added this line later
+  id         String   @id @default(uuid())
   user_id    String
   resume_id  String
   title      String?

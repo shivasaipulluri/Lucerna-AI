@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma"
+import { primaryPrisma as prisma } from "@/lib/prisma"
 
 // Updated FREE_TIER_LIMITS to 100 for all features
 const FREE_TIER_LIMITS = {
