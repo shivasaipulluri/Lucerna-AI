@@ -14,6 +14,11 @@ export const modelPrisma =
   globalForPrisma.modelPrisma ||
   new PrismaClient({
     log: ["query", "error", "warn"],
+    datasources: {
+      db: {
+        url: process.env.MODEL_DATABASE_URL + "?connect_timeout=60"
+      }
+    }
   })
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.modelPrisma = modelPrisma
