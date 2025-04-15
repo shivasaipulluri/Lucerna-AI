@@ -1,0 +1,104 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["rhel-openssl-3.0.x", "native"]
+  output        = "./generated/model_client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("MODEL_DATABASE_URL")
+}
+
+model User {
+  id                                 String               @id @default(uuid())
+  email                              String?
+  anon_user_id                       String               @unique
+  updated_at                         DateTime             @default(now())
+  daily_basic_tailorings_used        Int?                 @default(0)
+  daily_personalized_tailorings_used Int?                 @default(0)
+  daily_cover_letters_used           Int?                 @default(0)
+  daily_reset_date                   DateTime?
+  interactions                       Interaction[]
+  resume_events                      ResumeEvent[]
+  resumes                            Resume[]
+  saved_resumes                      SavedResume[]
+  tailoring_analytics                TailoringAnalytics[]
+
+  @@map("users")
+}
+
+model ResumeEvent {
+  id              String   @id
+  user_id         String
+  event_type      String?
+  resume_id       String?
+  resume_text     String?
+  job_description String?
+  tailored_text   String?
+  ats_score       Int?
+  jd_score        Int?
+  tailoring_mode  String?
+  version         Int?
+  timestamp       DateTime @default(now())
+  user            User     @relation(fields: [user_id], references: [id])
+
+  @@map("resume_events")
+}
+
+model Interaction {
+  id        String   @id
+  user_id   String
+  action    String?
+  element   String?
+  timestamp DateTime @default(now())
+  metadata  Json?
+  user      User     @relation(fields: [user_id], references: [id])
+
+  @@map("interactions")
+}
+
+model TailoringAnalytics {
+  id              String   @id
+  user_id         String
+  resume_id       String
+  original_text   String
+  tailored_text   String
+  job_description String
+  ats_score       Int
+  jd_score        Int
+  tailoring_mode  String
+  is_refinement   Boolean
+  iterations      Int
+  golden_passed   Boolean
+  created_at      DateTime @default(now())
+  user            User     @relation(fields: [user_id], references: [id])
+
+  @@map("tailoring_analytics")
+}
+
+model Resume {
+  id              String   @id
+  user_id         String
+  resume_text     String
+  job_description String
+  modified_resume String?
+  ats_score       Int?
+  jd_score        Int?
+  version         Int?
+  tailoring_mode  String?
+  created_at      DateTime @default(now())
+  user            User     @relation(fields: [user_id], references: [id])
+
+  @@map("resumes")
+}
+
+model SavedResume {
+  id         String   @id @default(uuid())
+  user_id    String
+  resume_id  String
+  title      String?
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id])
+
+  @@map("saved_resumes")
+}

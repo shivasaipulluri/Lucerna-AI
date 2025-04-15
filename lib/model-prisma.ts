@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient } from "../prisma/generated/model_client"
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
@@ -13,11 +13,6 @@ console.log("[DEBUG] MODEL_DATABASE_URL available:", !!process.env.MODEL_DATABAS
 export const modelPrisma =
   globalForPrisma.modelPrisma ||
   new PrismaClient({
-    datasources: {
-      db: {
-        url: process.env.MODEL_DATABASE_URL!,
-      },
-    },
     log: ["query", "error", "warn"],
   })
 
