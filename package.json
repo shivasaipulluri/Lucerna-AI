@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate --schema=prisma/schema.prisma && prisma generate --schema=prisma/model-schema.prisma && cross-env NEXT_PHASE=phase-production-build next build",
+    "build": "prisma generate && next build",
+    "build:model": "prisma generate --schema=./prisma/model-schema.prisma && next build",
+    "build:primary": "prisma generate --schema=./prisma/schema.prisma && next build",
     "start": "next start",
     "lint": "next lint",
     "setup-prisma": "ts-node scripts/setup-prisma.ts",
@@ -20,7 +22,8 @@
     "generate-model-client": "node scripts/generate-model-client.js",
     "init-model-db": "node scripts/init-model-db.js",
     "check-model-db": "tsx scripts/check-model-db.ts",
-    "analyze": "next build && source-map-explorer .next/static/chunks/*.js"
+    "analyze": "next build && source-map-explorer .next/static/chunks/*.js",
+    "seed": "node prisma/seed.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.1",

@@ -20,12 +20,11 @@ model User {
   phone                          String?
   country                        String?
   linkedin                       String?
-  company                        String?               // Add this field
-  position                       String?               // Add this field
-  education                      String?               // Add this field
-  skills                         String?               // Add this field
-  bio                            String?               // Add this field
-  // Subscription and usage tracking fields
+  company                        String?
+  position                       String?
+  education                      String?
+  skills                         String?
+  bio                            String?
   subscription_tier              String?
   subscription_end_date          DateTime?
   daily_basic_tailorings_used    Int                   @default(0)
@@ -40,8 +39,8 @@ model User {
   savedResumes                   SavedResume[]
   tailoringAnalytics             TailoringAnalytics[]
   interviewSettings              InterviewSettings[]
-  resumeEvents                   ResumeEvent[]         // Add this relation field
-  interactions                   Interaction[]         // Add this relation field
+  resumeEvents                   ResumeEvent[]
+  interactions                   Interaction[]
 
   @@map("users")
 }
@@ -107,7 +106,7 @@ model Resume {
   coverLetters        CoverLetter[]
   linkedinOptimizations LinkedinOptimization[]
   savedResumes        SavedResume[]
-  tailoringAnalytics  TailoringAnalytics[]  // Add this line to create the relation
+  tailoringAnalytics  TailoringAnalytics[]
 
   @@map("resumes")
 }
@@ -153,9 +152,8 @@ model SavedResume {
   id            String   @id @default(uuid())
   user_id       String
   resume_id     String
-  label         String?   // Optional label for user to identify the saved resume
+  label         String?
   created_at    DateTime @default(now())
-
   user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   resume        Resume   @relation(fields: [resume_id], references: [id], onDelete: Cascade)
 
