@@ -17,23 +17,30 @@ import { useToast } from "@/components/ui/use-toast"
 // Create a safer implementation for PDF generation
 const usePdfGenerator = () => {
   const [pdfGeneratorLoaded, setPdfGeneratorLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check if we're in the browser
     if (typeof window !== "undefined") {
-      // Try to dynamically load the html2pdf library
-      import("html2pdf.js")
-        .then(() => {
-          setPdfGeneratorLoaded(true)
-        })
-        .catch((err) => {
-          console.error("Failed to load PDF generator:", err)
-          setPdfGeneratorLoaded(false)
-        })
+      try {
+        import("html2pdf.js")
+          .then(() => {
+            setPdfGeneratorLoaded(true)
+            setError(null)
+          })
+          .catch((err) => {
+            console.error("Failed to load PDF generator:", err)
+            setError("Failed to load PDF generator. Please try again later.")
+            setPdfGeneratorLoaded(false)
+          })
+      } catch (err) {
+        console.error("Error initializing PDF generator:", err)
+        setError("Error initializing PDF generator. Please try again later.")
+        setPdfGeneratorLoaded(false)
+      }
     }
   }, [])
 
-  return pdfGeneratorLoaded
+  return { pdfGeneratorLoaded, error }
 }
 
 // Add this after the imports
@@ -99,6 +106,8 @@ export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
   const { toast } = useToast()
   const [retryCount, setRetryCount] = useState(0)
   const maxRetries = 3
+
+  const { pdfGeneratorLoaded, error: pdfError } = usePdfGenerator()
 
   const fetchResume = useCallback(async () => {
     try {
@@ -289,51 +298,49 @@ export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
     }
   }, [resume, toast])
 
-  const downloadAsPdf = useCallback(async () => {
-    if (!resume?.modified_resume) {
+  const downloadAsPdf = async () => {
+    if (!pdfGeneratorLoaded) {
       toast({
-        title: "Error",
-        description: "No modified resume available to download",
+        title: "PDF Generator Not Ready",
+        description: "Please wait while we prepare the PDF generator.",
         variant: "destructive",
       })
       return
     }
 
-    if (typeof window === "undefined") return
-
     try {
       setIsDownloading(true)
-      const html2pdfModule = await import("html2pdf.js")
-      const html2pdf = html2pdfModule.default || html2pdfModule
-
-      const element = document.createElement("div")
-      element.innerHTML = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.5;">
-          <h1 style="text-align: center; margin-bottom: 20px;">Tailored Resume</h1>
-          <div style="white-space: pre-wrap;">${resume.modified_resume}</div>
-        </div>
-      `
-
-      const opt = {
-        margin: [15, 15] as [number, number],
-        filename: `tailored-resume-v${resume.version}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      const element = document.getElementById("resume-content")
+      if (!element) {
+        throw new Error("Resume content not found")
       }
 
-      await html2pdf().set(opt).from(element).save()
+      const opt = {
+        margin: 1,
+        filename: `resume-${resumeId}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+      }
+
+      const html2pdf = (await import("html2pdf.js")).default
+      await html2pdf().from(element).set(opt).save()
+      
+      toast({
+        title: "Download Complete",
+        description: "Your resume has been downloaded as PDF.",
+      })
     } catch (err) {
       console.error("Error generating PDF:", err)
       toast({
-        title: "PDF Generation Failed",
-        description: "Failed to generate PDF. Please try the text download option instead.",
+        title: "Download Failed",
+        description: "Failed to generate PDF. Please try again later.",
         variant: "destructive",
       })
     } finally {
       setIsDownloading(false)
     }
-  }, [resume, toast])
+  }
 
   const downloadAsDocx = () => {
     // This is a placeholder for future implementation

@@ -9,11 +9,11 @@ const globalForPrisma = global as unknown as {
 // Add debug logging to verify the environment variable is set
 console.log("[DEBUG] DATABASE_URL available:", !!process.env.DATABASE_URL)
 
-// Create a new PrismaClient instance
+// Create a new PrismaClient instance with proper configuration for Vercel
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    log: ["query", "error", "warn"],
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
     datasources: {
       db: {
         url: process.env.DATABASE_URL

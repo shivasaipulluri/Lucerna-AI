@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "setup-prisma": "ts-node scripts/setup-prisma.ts",
-    "postinstall": "prisma generate --schema=prisma/schema.prisma && prisma generate --schema=prisma/model-schema.prisma",
+    "postinstall": "prisma generate",
     "add-column": "ts-node scripts/add-tailoring-mode.ts",
     "add-tailoring-to-resumes": "ts-node scripts/add-tailoring-mode-to-resumes.ts",
     "create-analytics-table": "ts-node scripts/create-tailoring-analytics-table.ts",
@@ -23,7 +23,8 @@
     "init-model-db": "node scripts/init-model-db.js",
     "check-model-db": "tsx scripts/check-model-db.ts",
     "analyze": "next build && source-map-explorer .next/static/chunks/*.js",
-    "seed": "node prisma/seed.mjs"
+    "seed": "node prisma/seed.mjs",
+    "vercel-build": "prisma generate && next build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.8.0",
