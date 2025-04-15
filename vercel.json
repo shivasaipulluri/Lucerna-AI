@@ -14,5 +14,15 @@
     "env": {
       "PRISMA_GENERATE_DATAPROXY": "true"
     }
-  }
+  },
+  "ignoreCommand": "node scripts/build.js",
+  "routes": [
+    {
+      "src": "/prisma/(.*)",
+      "dest": "/prisma/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    }
+  ]
 }
