@@ -1,4 +1,4 @@
-import pdfParse from "pdf-parse"
+import { PDFDocument } from 'pdf-lib'
 
 /**
  * Server-side PDF text extraction from buffer
@@ -7,11 +7,19 @@ import pdfParse from "pdf-parse"
  */
 export async function extractTextFromPDFBuffer(buffer: Buffer): Promise<string> {
   try {
-    // Parse the PDF
-    const data = await pdfParse(buffer)
+    // Load the PDF document
+    const pdfDoc = await PDFDocument.load(buffer)
+    
+    // Get the number of pages
+    const numPages = pdfDoc.getPageCount()
 
-    // Return the text content
-    return data.text || "No text content found in PDF"
+    // For now, return basic information about the PDF
+    return `PDF document loaded successfully.
+Number of pages: ${numPages}
+
+Note: Full text extraction is not available in this version.
+Please copy and paste your resume text manually.`
+
   } catch (error) {
     console.error("Error extracting text from PDF buffer:", error)
     throw new Error("Failed to extract text from PDF")
