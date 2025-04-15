@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button"
 import { logInteractionDirect } from "@/lib/model-logger"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase/client"
+import { InteractionMetadata } from "@/app/admin/analytics/actions"
 
 interface ButtonWithAnalyticsProps extends React.ComponentProps<typeof Button> {
   elementName: string
-  action?: string
-  metadata?: Record<string, any>
+  action?: 'click' | 'hover' | 'focus' | 'blur' | 'submit' | 'download'
+  metadata?: InteractionMetadata
 }
 
 export function ButtonWithAnalytics({

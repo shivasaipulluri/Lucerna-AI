@@ -7,14 +7,40 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Download, Printer, Copy, Check } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { useAnalytics } from "@/app/dashboard/hooks/useAnalytics"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { TailoringMode } from "@/lib/types"
+import * as Diff from "diff"
+import { ReactNode } from "react"
+
+interface ResumeSection {
+  [key: string]: string;
+}
+
+interface Resume {
+  sections: ResumeSection;
+  version?: number;
+  tailoring_mode?: TailoringMode;
+}
 
 interface TailoredPreviewProps {
   modifiedResume: string
   originalResume: string
   atsScore?: number | null
   jdScore?: number | null
-  version?: number
-  tailoringMode?: string
+  version: number
+  tailoringMode: TailoringMode
+  resumeId: string
+}
+
+interface AnalyticsError {
+  message: string
+  code?: string
 }
 
 export default function TailoredPreview({
@@ -24,344 +50,288 @@ export default function TailoredPreview({
   jdScore,
   version = 1,
   tailoringMode = "personalized",
+  resumeId,
 }: TailoredPreviewProps) {
   const [activeTab, setActiveTab] = useState<string>("preview")
   const [copied, setCopied] = useState<boolean>(false)
   const [parsedSections, setParsedSections] = useState<{ [key: string]: string }>({})
   const [originalSections, setOriginalSections] = useState<{ [key: string]: string }>({})
   const { toast } = useToast()
+  const { logCopyToClipboard, logDownload, error: analyticsError } = useAnalytics()
 
   // Parse resume into sections
   useEffect(() => {
-    if (modifiedResume) {
-      const sections = parseResumeIntoSections(modifiedResume)
-      setParsedSections(sections)
+    try {
+      if (modifiedResume) {
+        const sections = parseResumeIntoSections(modifiedResume)
+        setParsedSections(sections)
+      }
+      if (originalResume) {
+        const sections = parseResumeIntoSections(originalResume)
+        setOriginalSections(sections)
+      }
+    } catch (err) {
+      console.error("Error parsing resume sections:", err)
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to parse resume sections",
+        variant: "destructive",
+      })
     }
+  }, [modifiedResume, originalResume, toast])
 
-    if (originalResume) {
-      const sections = parseResumeIntoSections(originalResume)
-      setOriginalSections(sections)
-    }
-  }, [modifiedResume, originalResume])
+  const parseResumeIntoSections = (text: string): { [key: string]: string } => {
+    try {
+      const sections: { [key: string]: string } = {}
+      const lines = text.split("\n")
+      let currentSection = "Introduction"
+      let currentContent = ""
 
-  // Function to parse resume text into sections
-  const parseResumeIntoSections = (text: string) => {
-    // Common section headers in resumes
-    const sectionHeaders = [
-      "SUMMARY",
-      "PROFESSIONAL SUMMARY",
-      "OBJECTIVE",
-      "EXPERIENCE",
-      "WORK EXPERIENCE",
-      "EMPLOYMENT HISTORY",
-      "PROFESSIONAL EXPERIENCE",
-      "EDUCATION",
-      "ACADEMIC BACKGROUND",
-      "SKILLS",
-      "TECHNICAL SKILLS",
-      "CORE COMPETENCIES",
-      "CERTIFICATIONS",
-      "CERTIFICATES",
-      "LICENSES",
-      "PROJECTS",
-      "PROJECT EXPERIENCE",
-      "AWARDS",
-      "HONORS",
-      "ACHIEVEMENTS",
-      "PUBLICATIONS",
-      "RESEARCH",
-      "LANGUAGES",
-      "LANGUAGE PROFICIENCY",
-      "VOLUNTEER",
-      "VOLUNTEER EXPERIENCE",
-      "COMMUNITY SERVICE",
-      "INTERESTS",
-      "HOBBIES",
-    ]
-
-    // Initialize sections object with a "HEADER" section for contact info
-    const sections: { [key: string]: string } = {
-      HEADER: "",
-    }
-
-    // Split the text by lines
-    const lines = text.split("\n")
-
-    // Start with HEADER as the current section
-    let currentSection = "HEADER"
-
-    // Process each line
-    lines.forEach((line) => {
-      // Check if this line is a section header
-      const upperLine = line.toUpperCase().trim()
-      const isHeader = sectionHeaders.some(
-        (header) => upperLine === header || upperLine.startsWith(header + ":") || upperLine.startsWith(header + " "),
-      )
-
-      if (isHeader) {
-        // Extract the actual header text from the line
-        currentSection = line.trim()
-        sections[currentSection] = ""
-      } else {
-        // Add this line to the current section
-        if (sections[currentSection] !== undefined) {
-          sections[currentSection] += line + "\n"
+      for (const line of lines) {
+        // Check if line is a section header (all caps, no lowercase letters)
+        if (line.trim().toUpperCase() === line.trim() && 
+            line.trim().length > 0 && 
+            !/[a-z]/.test(line.trim())) {
+          if (currentContent) {
+            sections[currentSection] = currentContent.trim()
+          }
+          currentSection = line.trim()
+          currentContent = ""
+        } else {
+          currentContent += line + "\n"
         }
       }
-    })
 
-    return sections
+      if (currentContent) {
+        sections[currentSection] = currentContent.trim()
+      }
+
+      return sections
+    } catch (err) {
+      console.error("Error in parseResumeIntoSections:", err)
+      throw new Error("Failed to parse resume sections")
+    }
   }
 
-  // Function to copy resume to clipboard
-  const copyToClipboard = async () => {
+  const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(modifiedResume)
       setCopied(true)
+      await logCopyToClipboard(resumeId, version)
       toast({
-        title: "Copied to clipboard",
-        description: "Resume copied successfully",
+        title: "Success",
+        description: "Resume copied to clipboard",
       })
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
+      console.error("Error copying to clipboard:", err)
       toast({
-        title: "Copy failed",
-        description: "Could not copy resume to clipboard",
+        title: "Error",
+        description: "Failed to copy resume to clipboard",
         variant: "destructive",
       })
     }
   }
 
-  // Function to download resume as text file
-  const downloadAsText = () => {
-    const blob = new Blob([modifiedResume], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `tailored-resume-v${version}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-
-    toast({
-      title: "Download complete",
-      description: "Resume downloaded as text file",
-    })
+  const handleDownload = (format: "pdf" | "docx" | "txt") => async () => {
+    try {
+      const blob = new Blob([modifiedResume], { 
+        type: format === "pdf" ? "application/pdf" : 
+              format === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : 
+              "text/plain" 
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `resume-v${version}.${format}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      await logDownload(resumeId, version, format)
+      toast({
+        title: "Success",
+        description: `Resume downloaded as ${format.toUpperCase()}`,
+      })
+    } catch (err) {
+      console.error("Error downloading resume:", err)
+      toast({
+        title: "Error",
+        description: "Failed to download resume",
+        variant: "destructive",
+      })
+    }
   }
 
-  // Function to print resume
   const printResume = () => {
-    const printWindow = window.open("", "_blank")
-    if (!printWindow) {
+    try {
+      const printWindow = window.open("", "_blank")
+      if (!printWindow) {
+        throw new Error("Failed to open print window")
+      }
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Resume v${version}</title>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+              h1 { font-size: 24px; margin-bottom: 20px; }
+              h2 { font-size: 18px; margin-top: 20px; margin-bottom: 10px; }
+              p { margin-bottom: 10px; }
+            </style>
+          </head>
+          <body>
+            <h1>Resume v${version}</h1>
+            <div style="white-space: pre-wrap;">${modifiedResume}</div>
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.print()
+    } catch (err) {
+      console.error("Error printing resume:", err)
       toast({
-        title: "Print failed",
-        description: "Could not open print window. Please check your popup settings.",
+        title: "Error",
+        description: "Failed to print resume",
         variant: "destructive",
       })
-      return
-    }
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Tailored Resume</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              line-height: 1.5;
-              margin: 1in;
-              color: #333;
-            }
-            h1, h2, h3 {
-              margin-top: 0.5em;
-              margin-bottom: 0.5em;
-              color: #2c3e50;
-            }
-            .section {
-              margin-bottom: 1em;
-              page-break-inside: avoid;
-            }
-            .section-title {
-              font-weight: bold;
-              border-bottom: 1px solid #ddd;
-              margin-bottom: 0.5em;
-              font-size: 1.2em;
-            }
-            .section-content {
-              white-space: pre-wrap;
-            }
-            @media print {
-              body {
-                margin: 0.5in;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div id="resume-content">
-            ${Object.entries(parsedSections)
-              .map(
-                ([title, content]) => `
-              <div class="section">
-                ${title === "HEADER" ? "" : `<div class="section-title">${title}</div>`}
-                <div class="section-content">${content.replace(/\n/g, "<br>")}</div>
-              </div>
-            `,
-              )
-              .join("")}
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
-            };
-          </script>
-        </body>
-      </html>
-    `)
-
-    printWindow.document.close()
-  }
-
-  // Helper function to get tailoring mode display name
-  const getTailoringModeDisplay = (mode: string) => {
-    switch (mode.toLowerCase()) {
-      case "basic":
-      case "quick":
-        return "Basic"
-      case "personalized":
-      case "story":
-        return "Personalized"
-      case "aggressive":
-        return "Aggressive"
-      default:
-        return mode.charAt(0).toUpperCase() + mode.slice(1)
     }
   }
 
-  // Helper function to highlight differences between sections
-  const highlightDifferences = (sectionTitle: string) => {
-    const modifiedContent = parsedSections[sectionTitle] || ""
-    const originalContent = originalSections[sectionTitle] || ""
+  const getTailoringModeDisplay = (mode: TailoringMode): string => {
+    const modeMap: Record<TailoringMode, string> = {
+      "basic": "Basic Tailoring",
+      "personalized": "Personalized Tailoring",
+      "aggressive": "Aggressive Tailoring",
+      "story": "Story-Based Tailoring",
+      "quick": "Quick Tailoring"
+    }
+    return modeMap[mode] || "Unknown Mode"
+  }
 
-    if (!originalContent || !modifiedContent) return modifiedContent
+  const highlightDifferences = (
+    sectionTitle: string,
+    originalResume: Resume | null,
+    modifiedResume: Resume | null
+  ): string => {
+    try {
+      if (!originalResume?.sections || !modifiedResume?.sections) {
+        return "";
+      }
 
-    // This is a simple implementation that just wraps modified content in a span
-    // A more sophisticated diff algorithm would be better for production
-    const modifiedLines = modifiedContent.split("\n")
-    const originalLines = originalContent.split("\n")
+      const originalText = originalResume.sections[sectionTitle] || "";
+      const modifiedText = modifiedResume.sections[sectionTitle] || "";
 
-    return modifiedLines
-      .map((line, index) => {
-        // Check if this line exists in the original and is different
-        const isModified = !originalLines.includes(line) && line.trim() !== ""
+      const differences = Diff.diffWords(originalText, modifiedText);
 
-        if (isModified) {
-          return `<span class="bg-green-100 text-green-800">${line}</span>`
+      return differences.map((part: { value: string; added?: boolean; removed?: boolean }, index: number) => {
+        if (part.added) {
+          return `<span class="bg-green-100 text-green-800">${part.value}</span>`;
         }
-        return line
-      })
-      .join("\n")
+        if (part.removed) {
+          return `<span class="bg-red-100 text-red-800 line-through">${part.value}</span>`;
+        }
+        return part.value;
+      }).join("");
+    } catch (error) {
+      console.error("Error highlighting differences:", error);
+      return "";
+    }
   }
+
+  // Show analytics error if any
+  useEffect(() => {
+    if (analyticsError) {
+      console.error("Analytics error:", analyticsError)
+      toast({
+        title: "Analytics Error",
+        description: analyticsError.message,
+        variant: "destructive",
+      })
+    }
+  }, [analyticsError, toast])
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <div>
-            <CardTitle className="text-xl">Tailored Resume Preview</CardTitle>
-            <div className="flex items-center mt-1 space-x-2">
-              <Badge variant="outline">{getTailoringModeDisplay(tailoringMode)} Mode</Badge>
-              {version && <Badge variant="outline">Version {version}</Badge>}
-              {atsScore && (
-                <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                  ATS: {atsScore}%
-                </Badge>
-              )}
-              {jdScore && (
-                <Badge variant="outline" className="bg-purple-50 text-purple-700">
-                  JD: {jdScore}%
-                </Badge>
-              )}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <span>Tailored Resume</span>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">
+              Version {version}
+            </Badge>
+            <Badge variant="outline">
+              {getTailoringModeDisplay(tailoringMode)}
+            </Badge>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+            <TabsTrigger value="comparison">Comparison</TabsTrigger>
+          </TabsList>
+          <TabsContent value="preview">
+            <div className="mt-4">
+              <div className="flex justify-end gap-2 mb-4">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="sm" onClick={handleCopy}>
+                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Copy to clipboard</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="sm" onClick={handleDownload("txt")}>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Download as text</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="sm" onClick={printResume}>
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Print resume</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="whitespace-pre-wrap">{modifiedResume}</div>
             </div>
-          </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={copyToClipboard}>
-              {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
-              {copied ? "Copied" : "Copy"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={downloadAsText}>
-              <Download className="h-4 w-4 mr-1" />
-              Download
-            </Button>
-            <Button variant="outline" size="sm" onClick={printResume}>
-              <Printer className="h-4 w-4 mr-1" />
-              Print
-            </Button>
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          <Tabs defaultValue="preview" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="preview">Formatted Preview</TabsTrigger>
-              <TabsTrigger value="changes">Show Changes</TabsTrigger>
-              <TabsTrigger value="plain">Plain Text</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="preview" className="mt-0">
-              <div className="bg-white border rounded-md p-6 shadow-sm">
-                {Object.entries(parsedSections).map(([title, content]) => (
-                  <div key={title} className="mb-6 last:mb-0">
-                    {title !== "HEADER" && (
-                      <h2 className="text-lg font-bold text-gray-800 border-b pb-1 mb-2">{title}</h2>
-                    )}
-                    <div className="whitespace-pre-wrap text-gray-700">{content}</div>
-                  </div>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="changes" className="mt-0">
-              <div className="bg-white border rounded-md p-6 shadow-sm">
-                {Object.entries(parsedSections).map(([title, content]) => (
-                  <div key={title} className="mb-6 last:mb-0">
-                    {title !== "HEADER" && (
-                      <h2 className="text-lg font-bold text-gray-800 border-b pb-1 mb-2">{title}</h2>
-                    )}
-                    <div
-                      className="whitespace-pre-wrap text-gray-700"
-                      dangerouslySetInnerHTML={{ __html: highlightDifferences(title) }}
-                    />
-                  </div>
-                ))}
-                <div className="mt-4 text-sm text-gray-500 bg-gray-50 p-2 rounded">
-                  <p>
-                    <span className="inline-block bg-green-100 text-green-800 px-2 py-0.5 rounded mr-2">
-                      Highlighted
-                    </span>
-                    text indicates content that has been modified or added during tailoring.
-                  </p>
+          </TabsContent>
+          <TabsContent value="comparison">
+            <div className="mt-4">
+              {Object.keys(parsedSections).map((sectionTitle) => (
+                <div key={sectionTitle} className="mb-6">
+                  <h3 className="text-lg font-semibold mb-2">{sectionTitle}</h3>
+                  <div
+                    className="whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{
+                      __html: highlightDifferences(sectionTitle, originalSections[sectionTitle] ? JSON.parse(originalSections[sectionTitle]) as Resume : null, parsedSections[sectionTitle] ? JSON.parse(parsedSections[sectionTitle]) as Resume : null),
+                    }}
+                  />
                 </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="plain" className="mt-0">
-              <div className="bg-gray-50 border rounded-md p-4 font-mono text-sm whitespace-pre-wrap overflow-auto max-h-[600px]">
-                {modifiedResume}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-
-      <div className="text-sm text-gray-500 text-center">
-        <p>
-          This preview is optimized for both screen viewing and printing. Use the Print button for a clean, formatted
-          hardcopy.
-        </p>
-      </div>
-    </div>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   )
 }

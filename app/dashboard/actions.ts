@@ -801,3 +801,174 @@ export async function updateUserProfile(formData: any) {
     return { success: false, error: "Failed to update profile" }
   }
 }
+
+export async function getSavedResumeCollection() {
+  try {
+    const supabase = await createClient()
+
+    // Get authenticated user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      console.error("Authentication error:", userError)
+      return { success: false, error: "Not authenticated" }
+    }
+
+    // Get saved resumes with their associated resume details
+    const savedResumes = await prisma.savedResume.findMany({
+      where: {
+        user_id: user.id,
+      },
+      include: {
+        resume: true,
+      },
+      orderBy: {
+        created_at: "desc",
+      },
+    })
+
+    return { success: true, data: savedResumes }
+  } catch (error) {
+    console.error("Error fetching saved resumes:", error)
+    return { success: false, error: "Failed to fetch saved resumes" }
+  }
+}
+
+export async function deleteSavedResume(id: string) {
+  try {
+    const supabase = await createClient()
+
+    // Get authenticated user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      console.error("Authentication error:", userError)
+      return { success: false, error: "Not authenticated" }
+    }
+
+    // Delete the saved resume
+    await prisma.savedResume.delete({
+      where: {
+        id,
+        user_id: user.id,
+      },
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error deleting saved resume:", error)
+    return { success: false, error: "Failed to delete saved resume" }
+  }
+}
+
+export async function updateSavedResumeLabel(id: string, label: string) {
+  try {
+    const supabase = await createClient()
+
+    // Get authenticated user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      console.error("Authentication error:", userError)
+      return { success: false, error: "Not authenticated" }
+    }
+
+    // Update the saved resume label
+    await prisma.savedResume.update({
+      where: {
+        id,
+        user_id: user.id,
+      },
+      data: {
+        label,
+      },
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error updating saved resume label:", error)
+    return { success: false, error: "Failed to update saved resume label" }
+  }
+}
+
+export async function getResumeHistoryAction() {
+  try {
+    const supabase = await createClient()
+
+    // Get authenticated user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      console.error("Authentication error:", userError)
+      return { success: false, error: "Not authenticated" }
+    }
+
+    // Get resume history
+    const resumes = await prisma.resume.findMany({
+      where: {
+        user_id: user.id,
+      },
+      orderBy: {
+        created_at: "desc",
+      },
+    })
+
+    return { success: true, data: resumes }
+  } catch (error) {
+    console.error("Error fetching resume history:", error)
+    return { success: false, error: "Failed to fetch resume history" }
+  }
+}
+
+/**
+ * Fetches a resume by ID.
+ * @param resumeId The ID of the resume to fetch.
+ * @returns Object containing success status and either the resume data or an error message.
+ */
+export async function getResumeById(resumeId: string) {
+  try {
+    const supabase = await createClient()
+
+    // Get authenticated user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return { success: false, error: "Not authenticated" }
+    }
+
+    // Get the resume
+    const resume = await prisma.resume.findFirst({
+      where: {
+        id: resumeId,
+        user_id: user.id,
+      },
+    })
+
+    if (!resume) {
+      return { success: false, error: "Resume not found" }
+    }
+
+    return { success: true, data: resume }
+  } catch (error) {
+    console.error("Error fetching resume:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch resume",
+    }
+  }
+}

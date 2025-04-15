@@ -5,12 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Download, Copy, Check } from "lucide-react"
+import { Resume } from "@/lib/types"
 
-export function ResumeView({ resume }: { resume: any }) {
+export function ResumeView({ resume }: { resume: Resume }) {
   const [activeTab, setActiveTab] = useState("tailored")
   const [copied, setCopied] = useState(false)
 
   const copyToClipboard = async (text: string) => {
+    if (!text) return
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
@@ -49,14 +51,27 @@ export function ResumeView({ resume }: { resume: any }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => copyToClipboard(resume.modified_resume)}
-                className="flex items-center gap-1"
+                onClick={() => resume.modified_resume && copyToClipboard(resume.modified_resume)}
+                disabled={copied}
               >
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copied ? "Copied!" : "Copy"}
+                {copied ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy
+                  </>
+                )}
               </Button>
-              <Button variant="outline" size="sm" onClick={downloadAsText} className="flex items-center gap-1">
-                <Download className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadAsText}
+              >
+                <Download className="mr-2 h-4 w-4" />
                 Download
               </Button>
             </div>

@@ -39,13 +39,24 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json(resume)
   } catch (error) {
     console.error("Error fetching resume:", error)
+    
+    // Handle specific error cases
+    if (error instanceof Error) {
+      if (error.message.includes('prisma')) {
+        return NextResponse.json({ error: "Database error occurred" }, { status: 500 })
+      }
+      if (error.message.includes('network')) {
+        return NextResponse.json({ error: "Network error occurred" }, { status: 503 })
+      }
+    }
+    
     return NextResponse.json({ error: "Failed to fetch resume" }, { status: 500 })
   }
 }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const supabase = await createClient() // Now awaiting createClient
+    const supabase = await createClient()
     const {
       data: { user },
       error: userError,
@@ -55,10 +66,50 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Rest of the function remains the same
-    // ...
+    const resumeId = params.id
+    if (!resumeId) {
+      return NextResponse.json({ error: "Resume ID is required" }, { status: 400 })
+    }
+
+    const body = await request.json()
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+
+    // Validate required fields
+    const { modified_resume, version, ats_score, jd_score } = body
+    if (!modified_resume || !version || ats_score === undefined || jd_score === undefined) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Update the resume
+    const updatedResume = await prisma.resume.update({
+      where: {
+        id: resumeId,
+        user_id: user.id,
+      },
+      data: {
+        modified_resume,
+        version,
+        ats_score,
+        jd_score,
+        updated_at: new Date(),
+      },
+    })
+
+    return NextResponse.json(updatedResume)
   } catch (error) {
     console.error("Error updating resume:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    
+    if (error instanceof Error) {
+      if (error.message.includes('prisma')) {
+        return NextResponse.json({ error: "Database error occurred" }, { status: 500 })
+      }
+      if (error.message.includes('network')) {
+        return NextResponse.json({ error: "Network error occurred" }, { status: 503 })
+      }
+    }
+    
+    return NextResponse.json({ error: "Failed to update resume" }, { status: 500 })
   }
 }

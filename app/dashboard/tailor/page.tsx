@@ -7,10 +7,10 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
-import { updateTailoringMode, getUserPreferences } from "../actions"
+import { updateTailoringMode } from "../actions-with-analytics"
+import { getUserPreferences } from "../actions"
 import { CheckCircle, Zap, User, Target } from "lucide-react"
-
-type TailoringMode = "basic" | "personalized" | "aggressive"
+import { TailoringMode } from "@/lib/types"
 
 export default function TailorPage() {
   const [selectedMode, setSelectedMode] = useState<TailoringMode | null>(null)
@@ -27,14 +27,12 @@ export default function TailorPage() {
         const result = await getUserPreferences()
 
         if (result.success && result.data?.tailoring_mode) {
-          // Map the old mode names to the new ones if needed
           const currentMode = result.data.tailoring_mode
+          // Map the old mode names to the new ones if needed
           if (currentMode === "quick") {
             setSelectedMode("basic")
           } else if (currentMode === "story") {
             setSelectedMode("personalized")
-          } else if (currentMode === "aggressive") {
-            setSelectedMode("aggressive")
           } else {
             // If it's already using the new naming
             setSelectedMode(currentMode as TailoringMode)
@@ -45,13 +43,18 @@ export default function TailorPage() {
         }
       } catch (error) {
         console.error("Error fetching user preferences:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load your preferences. Please try again.",
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchUserPreferences()
-  }, [])
+  }, [toast])
 
   const handleContinue = async () => {
     if (!selectedMode) return
@@ -74,9 +77,10 @@ export default function TailorPage() {
         })
       }
     } catch (error) {
+      console.error("Error updating tailoring mode:", error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: "An unexpected error occurred while saving your preferences.",
         variant: "destructive",
       })
     } finally {
@@ -86,7 +90,7 @@ export default function TailorPage() {
 
   const modeOptions = [
     {
-      id: "basic",
+      id: "basic" as TailoringMode,
       title: "Basic",
       description: "Light optimization focusing on keywords without significant rewrites.",
       icon: <Zap className="h-6 w-6" />,
@@ -95,7 +99,7 @@ export default function TailorPage() {
       iconColor: "text-primary",
     },
     {
-      id: "personalized",
+      id: "personalized" as TailoringMode,
       title: "Personalized",
       description: "Balanced approach that maintains your voice while aligning with job requirements.",
       icon: <User className="h-6 w-6" />,
@@ -104,7 +108,7 @@ export default function TailorPage() {
       iconColor: "text-primary",
     },
     {
-      id: "aggressive",
+      id: "aggressive" as TailoringMode,
       title: "Aggressive",
       description: "Maximum optimization to closely match job requirements and ATS systems.",
       icon: <Target className="h-6 w-6" />,

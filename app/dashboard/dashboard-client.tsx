@@ -14,7 +14,19 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, FileText } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 
-export function DashboardClient({ initialTab = "history" }: { initialTab?: string }) {
+interface DashboardClientProps {
+  initialTab?: string
+}
+
+interface SubmitResult {
+  success: boolean
+  error?: string
+  data?: {
+    id: string
+  }
+}
+
+export function DashboardClient({ initialTab = "history" }: DashboardClientProps) {
   const [activeTab, setActiveTab] = useState(initialTab)
   const [resumeText, setResumeText] = useState("")
   const [jobDescription, setJobDescription] = useState("")
@@ -59,30 +71,19 @@ export function DashboardClient({ initialTab = "history" }: { initialTab?: strin
     setIsSubmitting(true)
 
     try {
-      const result = await submitResume(trimmedResumeText, trimmedJobDescription)
+      const result: SubmitResult = await submitResume(trimmedResumeText, trimmedJobDescription)
 
       if (result.success && result.data?.id) {
         toast({
-          title: "Resume submitted successfully",
-          description: "Your resume is being processed for tailoring.",
+          title: "Success",
+          description: "Resume submitted successfully",
         })
         router.push(`/dashboard/resume/${result.data.id}`)
       } else {
         setError(result.error || "Failed to submit resume")
-        toast({
-          title: "Error",
-          description: result.error || "Failed to submit resume",
-          variant: "destructive",
-        })
       }
-    } catch (error) {
-      console.error("Error submitting resume:", error)
+    } catch (err) {
       setError("An unexpected error occurred")
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
     } finally {
       setIsSubmitting(false)
     }

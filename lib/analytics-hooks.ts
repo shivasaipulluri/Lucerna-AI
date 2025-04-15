@@ -1,5 +1,6 @@
 import { logTraining } from "./logger"
 import { logResumeEventDirect, logInteractionDirect } from "@/lib/model-logger" // Import direct logging functions
+import { InteractionMetadata } from "@/app/admin/analytics/actions"
 
 /**
  * Interface for resume tailoring event data
@@ -23,9 +24,9 @@ interface ResumeTailoringEventData {
  */
 interface InteractionEventData {
   userId: string
-  action: string
+  action: 'click' | 'hover' | 'focus' | 'blur' | 'submit' | 'download'
   element: string
-  metadata?: Record<string, any>
+  metadata?: InteractionMetadata
 }
 
 /**

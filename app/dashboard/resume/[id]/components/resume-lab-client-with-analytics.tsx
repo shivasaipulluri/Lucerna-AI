@@ -24,66 +24,51 @@ import { useToast } from "@/components/ui/use-toast"
 import { ButtonWithAnalytics } from "@/components/analytics/button-with-analytics"
 import { supabase } from "@/lib/supabase/client"
 import { logInteractionDirect } from "@/lib/model-logger"
+import { Resume, TailoringMode } from "@/lib/types"
+import { useAnalytics } from "@/app/dashboard/hooks/useAnalytics"
+import { withErrorBoundary } from "@/app/dashboard/components/error-boundary"
+import { RefineResumeButton } from "./refine-resume-button"
+import TailoredPreview from "./tailored-preview"
 
-export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any; resumeId: string }) {
+interface ResumeLabClientWithAnalyticsProps {
+  resume: Resume
+  resumeId: string
+}
+
+export function ResumeLabClientWithAnalytics({ resume, resumeId }: ResumeLabClientWithAnalyticsProps) {
   const [activeTab, setActiveTab] = useState("tailored")
   const [copied, setCopied] = useState(false)
   const [isRefining, setIsRefining] = useState(false)
   const [manualTailoringRequested, setManualTailoringRequested] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
+  const { userId, logTabSwitch, logCopyToClipboard, logDownload, error: analyticsError } = useAnalytics()
   const { toast } = useToast()
   const router = useRouter()
 
-  // Get the user ID when the component mounts
-  useEffect(() => {
-    async function getUserId() {
-      const { data } = await supabase.auth.getUser()
-      if (data.user) {
-        setUserId(data.user.id)
-        console.log(`[MODEL LOG] User ID set in ResumeLabClientWithAnalytics: ${data.user.id}`)
-      } else {
-        console.log(`[MODEL LOG] No user found in ResumeLabClientWithAnalytics`)
-      }
-    }
-
-    getUserId()
-  }, [])
-
   // Handle tab switching with analytics
   const handleTabChange = async (value: string) => {
-    if (userId && activeTab !== value) {
-      try {
-        await logTabSwitchAnalytics(userId, activeTab, value, { resumeId })
-      } catch (error) {
-        console.error("[MODEL DB ERROR] Failed to log tab switch:", error)
-      }
+    try {
+      await logTabSwitch(activeTab, value)
+      setActiveTab(value)
+    } catch (error) {
+      console.error("Error logging tab switch:", error)
+      // Continue with tab switch even if logging fails
+      setActiveTab(value)
     }
-    setActiveTab(value)
   }
 
   const runInitialTailoring = async () => {
     if (isRefining || !resumeId || resume?.modified_resume || !userId) return
 
-    console.log(`[MODEL LOG] Starting initial tailoring for user: ${userId}, resumeId: ${resumeId}`)
     setIsRefining(true)
-
     toast({ title: "Tailoring in progress", description: "Lucerna AI is tailoring your resume..." })
 
     try {
       // Log the tailoring interaction
-      try {
-        console.log(
-          `[MODEL LOG] ATTEMPT: Logging initial tailoring interaction for user: ${userId}, resumeId: ${resumeId}`,
-        )
-        await logInteractionDirect(userId, {
-          action: "click",
-          element: "start-tailoring-button",
-          metadata: { resumeId, timestamp: new Date().toISOString() },
-        })
-        console.log(`[MODEL LOG] SUCCESS: Initial tailoring interaction logged successfully`)
-      } catch (error) {
-        console.error(`[MODEL LOG] FAILURE: Error logging initial tailoring interaction:`, error)
-      }
+      await logInteractionDirect(userId, {
+        action: "click",
+        element: "start-tailoring-button",
+        metadata: { resumeId, timestamp: new Date().toISOString() },
+      })
 
       const result = await runTailoringAnalysisWithAnalytics(resume.resume_text, resume.job_description, resumeId)
       if (result.success) {
@@ -93,7 +78,12 @@ export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any
         throw new Error(result.error || "Failed to tailor resume")
       }
     } catch (err: any) {
-      toast({ title: "Tailoring failed", description: err.message, variant: "destructive" })
+      console.error("Error in runInitialTailoring:", err)
+      toast({ 
+        title: "Tailoring failed", 
+        description: err.message || "An unexpected error occurred", 
+        variant: "destructive" 
+      })
     } finally {
       setIsRefining(false)
       setManualTailoringRequested(false)
@@ -102,34 +92,22 @@ export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any
 
   useEffect(() => {
     if (resume && !resume.modified_resume && manualTailoringRequested && !isRefining) {
-      console.log("Tailoring needed — running analysis...")
       runInitialTailoring()
-    } else if (resume?.modified_resume) {
-      console.log("Tailoring already completed — skipping analysis.")
     }
   }, [resume, manualTailoringRequested, isRefining])
 
   const handleRefine = async () => {
     if (!resumeId || isRefining || !userId) return
 
-    console.log(`[MODEL LOG] Starting refinement for user: ${userId}, resumeId: ${resumeId}`)
     setIsRefining(true)
-
     toast({ title: "Refinement started", description: "Lucerna AI is optimizing your resume..." })
 
     try {
-      // Log the refinement interaction
-      try {
-        console.log(`[MODEL LOG] ATTEMPT: Logging refinement interaction for user: ${userId}, resumeId: ${resumeId}`)
-        await logInteractionDirect(userId, {
-          action: "click",
-          element: "refine-resume-button",
-          metadata: { resumeId, version: resume.version, timestamp: new Date().toISOString() },
-        })
-        console.log(`[MODEL LOG] SUCCESS: Refinement interaction logged successfully`)
-      } catch (error) {
-        console.error(`[MODEL LOG] FAILURE: Error logging refinement interaction:`, error)
-      }
+      await logInteractionDirect(userId, {
+        action: "click",
+        element: "refine-resume-button",
+        metadata: { resumeId, version: resume.version, timestamp: new Date().toISOString() },
+      })
 
       const result = await runTailoringAnalysisWithAnalytics(
         resume.modified_resume || resume.resume_text,
@@ -144,7 +122,12 @@ export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any
         throw new Error(result.error)
       }
     } catch (error: any) {
-      toast({ title: "Refinement failed", description: error.message, variant: "destructive" })
+      console.error("Error in handleRefine:", error)
+      toast({ 
+        title: "Refinement failed", 
+        description: error.message || "An unexpected error occurred", 
+        variant: "destructive" 
+      })
     } finally {
       setIsRefining(false)
     }
@@ -153,27 +136,17 @@ export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any
   const handleSaveResume = async () => {
     if (!resume || !resumeId || !userId) return
 
-    console.log(`[MODEL LOG] Starting save resume for user: ${userId}, resumeId: ${resumeId}`)
-
     try {
-      // Log the save interaction first
-      try {
-        console.log(`[MODEL LOG] ATTEMPT: Logging save button click for user: ${userId}, resumeId: ${resumeId}`)
-        await logInteractionDirect(userId, {
-          action: "click",
-          element: "save-resume-button",
-          metadata: {
-            resumeId,
-            version: resume.version || 1,
-            timestamp: new Date().toISOString(),
-          },
-        })
-        console.log(`[MODEL LOG] SUCCESS: Save button click logged successfully`)
-      } catch (error) {
-        console.error(`[MODEL LOG] FAILURE: Error logging save button click:`, error)
-      }
+      await logInteractionDirect(userId, {
+        action: "click",
+        element: "save-resume-button",
+        metadata: {
+          resumeId,
+          version: resume.version || 1,
+          timestamp: new Date().toISOString(),
+        },
+      })
 
-      // Call the function with analytics
       const result = await saveResumeWithAnalytics(resumeId)
 
       if (result.success) {
@@ -182,14 +155,10 @@ export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any
           description: "This resume has been added to your saved collection.",
         })
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to save resume",
-          variant: "destructive",
-        })
+        throw new Error(result.error || "Failed to save resume")
       }
     } catch (error: any) {
-      console.error(`[MODEL LOG] FAILURE: Error in handleSaveResume:`, error)
+      console.error("Error in handleSaveResume:", error)
       toast({
         title: "Error",
         description: error.message || "An unexpected error occurred",
@@ -197,6 +166,18 @@ export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any
       })
     }
   }
+
+  // Show analytics error if any
+  useEffect(() => {
+    if (analyticsError) {
+      console.error("Analytics error:", analyticsError)
+      toast({
+        title: "Analytics Error",
+        description: analyticsError.message,
+        variant: "destructive",
+      })
+    }
+  }, [analyticsError, toast])
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -239,8 +220,12 @@ export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any
   const getTailoringModeDisplay = (mode: string) =>
     mode === "aggressive" ? "Aggressive" : mode === "personalized" || mode === "story" ? "Personalized" : "Basic"
 
+  const isValidTailoringMode = (mode: string | null | undefined): mode is TailoringMode => {
+    return mode === "basic" || mode === "personalized" || mode === "aggressive" || mode === "story" || mode === "quick";
+  };
+
   const goldenRules = {
-    passed: resume?.ats_score >= 95 && resume?.jd_score >= 95,
+    passed: (resume?.ats_score ?? 0) >= 95 && (resume?.jd_score ?? 0) >= 95,
     feedback: ["Consider adding more impact-driven results", "Use clearer language for leadership roles"],
     suggestions: ["Include more measurable outcomes", "Match keywords from the job description"],
   }
@@ -264,100 +249,48 @@ export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any
   }, [userId, resumeId, resume])
 
   return (
-    <>
-      <div className="bg-white rounded-lg p-6 border shadow-soft mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2 font-serif">
-          {`Here's how Lucerna AI shaped your resume to shine brighter.`}
-        </h1>
-        <div className="text-sm text-gray-600 flex gap-4 flex-wrap">
-          <Badge className="bg-background text-primary">{`Version ${resume?.version || 1} · ${getTailoringModeDisplay(
-            resume?.tailoring_mode || "personalized",
-          )} Tailoring`}</Badge>
-          <div className="flex items-center text-sm">
-            <Clock className="h-4 w-4 mr-1 text-primary" />
-            <span>{resume?.created_at ? `Tailored ${formatDate(resume.created_at)}` : "Not tailored yet"}</span>
-          </div>
-        </div>
-      </div>
-
-      <Tabs defaultValue="tailored" value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid grid-cols-3 mb-4">
-          <TabsTrigger value="tailored">Tailored Resume</TabsTrigger>
-          <TabsTrigger value="original">Original Resume</TabsTrigger>
-          <TabsTrigger value="job">Job Description</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="tailored">
-          <Card className="shadow-soft">
-            <CardHeader className="flex justify-between items-center">
-              <CardTitle className="font-serif">Your Tailored Resume</CardTitle>
-              {resume?.modified_resume && userId && (
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => copyToClipboard(resume.modified_resume)}>
-                    {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
-                    {copied ? "Copied" : "Copy"}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={downloadAsText}>
-                    <Download className="h-4 w-4 mr-1" /> Download
-                  </Button>
-                </div>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Resume Lab</span>
+            <div className="flex items-center gap-2">
+              {resume.ats_score !== null && resume.ats_score !== undefined && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                  ATS: {resume.ats_score}%
+                </Badge>
               )}
-            </CardHeader>
-            <CardContent>
-              {resume?.modified_resume ? (
-                <div className="whitespace-pre-wrap bg-background border rounded p-4 font-mono max-h-[500px] overflow-y-auto text-sm">
-                  {resume.modified_resume}
-                </div>
-              ) : isRefining ? (
-                <div className="text-center py-12">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-                  <p className="text-gray-700">Lucerna AI is tailoring your resume...</p>
-                  <p className="text-sm text-gray-500 mt-2">This usually takes 15-30 seconds.</p>
-                </div>
-              ) : (
-                <div className="text-center space-y-4 py-6">
-                  <p>Your resume hasn't been tailored yet.</p>
-                  <ButtonWithAnalytics
-                    elementName="start-tailoring-button"
-                    onClick={() => setManualTailoringRequested(true)}
-                    disabled={isRefining}
-                    className="btn-hover"
-                    metadata={{ resumeId }}
-                  >
-                    {isRefining ? "Tailoring..." : "Start Tailoring Now"}
-                  </ButtonWithAnalytics>
-                </div>
+              {resume.jd_score !== null && resume.jd_score !== undefined && (
+                <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                  JD: {resume.jd_score}%
+                </Badge>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="original">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="font-serif">Your Original Resume</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="whitespace-pre-wrap bg-background border rounded p-4 font-mono max-h-[500px] overflow-y-auto text-sm">
-                {resume?.resume_text}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="job">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="font-serif">Job Description</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="whitespace-pre-wrap bg-background border rounded p-4 font-mono max-h-[500px] overflow-y-auto text-sm">
-                {resume?.job_description}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="tailored">Tailored</TabsTrigger>
+              <TabsTrigger value="original">Original</TabsTrigger>
+            </TabsList>
+            <TabsContent value="tailored">
+              <TailoredPreview
+                modifiedResume={resume.modified_resume || ""}
+                originalResume={resume.resume_text}
+                atsScore={resume.ats_score ?? 0}
+                jdScore={resume.jd_score ?? 0}
+                version={resume.version || 1}
+                tailoringMode={isValidTailoringMode(resume.tailoring_mode) ? resume.tailoring_mode : "personalized"}
+                resumeId={resumeId}
+              />
+            </TabsContent>
+            <TabsContent value="original">
+              <div className="whitespace-pre-wrap">{resume.resume_text}</div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       {/* Golden Rules Summary */}
       {resume?.modified_resume && (
@@ -398,13 +331,13 @@ export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any
         <div className="grid md:grid-cols-2 gap-4 mt-6">
           <ScoreCard
             title="ATS Compatibility"
-            score={resume.ats_score}
+            score={resume.ats_score ?? 0}
             description="How well your resume performs in Applicant Tracking Systems"
             icon={<CheckCircle className="h-5 w-5 text-success" />}
           />
           <ScoreCard
             title="Job Description Match"
-            score={resume.jd_score}
+            score={resume.jd_score ?? 0}
             description="How closely your resume aligns with the job requirements"
             icon={<Sparkles className="h-5 w-5 text-primary" />}
           />
@@ -485,7 +418,7 @@ export function ResumeLabClientWithAnalytics({ resume, resumeId }: { resume: any
           <Link href="/dashboard">Create New Resume</Link>
         </ButtonWithAnalytics>
       </div>
-    </>
+    </div>
   )
 }
 

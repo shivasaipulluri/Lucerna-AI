@@ -1,10 +1,15 @@
 export type TailoringAnalyticsData = {
   id: string
+  user_id: string
   resume_id: string
-  tailoring_mode: string
-  iterations: number
+  original_text: string
+  tailored_text: string
+  job_description: string
   ats_score: number
   jd_score: number
+  tailoring_mode: string
+  is_refinement: boolean
+  iterations: number
   golden_passed: boolean
-  created_at: string
+  created_at: Date
 }

@@ -1,37 +1,93 @@
-import { modelPrisma } from "@/lib/model-prisma"
+"use client"
+
+import { getAnalyticsData } from "./actions"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DataTable } from "@/components/ui/data-table"
+import { columns as eventColumns } from "@/app/admin/analytics/event-columns"
+import { columns as interactionColumns } from "@/app/admin/analytics/interaction-columns"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { Suspense } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useEffect, useState } from "react"
 
-// Define the types for the event and interaction objects
-interface ResumeEvent {
-  id: string
-  event_type: string
-  timestamp: Date
-  resume_id?: string
-}
-
-interface Interaction {
-  id: string
-  element: string
-  timestamp: Date
-  action: string
-}
-
-export default async function AnalyticsDashboardPage() {
-  // Check if we're in a build environment
-  const isBuild = process.env.NEXT_PHASE === "phase-production-build"
-  
-  if (isBuild) {
-    // During build, return a static version of the page
-    return (
-      <div className="container mx-auto py-8">
-        <h1 className="text-3xl font-bold mb-6">Analytics Dashboard</h1>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <Card key={i}>
             <CardHeader>
-              <CardTitle>Users</CardTitle>
+              <Skeleton className="h-6 w-24" />
             </CardHeader>
             <CardContent>
-              <p className="text-4xl font-bold">Loading...</p>
+              <Skeleton className="h-8 w-16" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="h-[300px]">
+        <Skeleton className="h-full w-full" />
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        {[1, 2].map((i) => (
+          <div key={i}>
+            <Skeleton className="h-6 w-32 mb-4" />
+            <Skeleton className="h-[300px] w-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function AdminAnalyticsPage() {
+  const [analyticsData, setAnalyticsData] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const result = await getAnalyticsData()
+        if (!result.success || !result.data) {
+          setError(result.error || "Failed to load analytics data")
+          return
+        }
+        setAnalyticsData(result.data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An unexpected error occurred")
+      }
+    }
+    fetchData()
+  }, [])
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-4">Admin Analytics</h1>
+        <div className="text-red-500">
+          <p>Error loading analytics data:</p>
+          <p>{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!analyticsData) {
+    return <LoadingSkeleton />
+  }
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Admin Analytics</h1>
+      
+      <Suspense fallback={<LoadingSkeleton />}>
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Total Users</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{analyticsData.counts.users}</div>
             </CardContent>
           </Card>
           <Card>
@@ -39,7 +95,7 @@ export default async function AnalyticsDashboardPage() {
               <CardTitle>Resume Events</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-4xl font-bold">Loading...</p>
+              <div className="text-3xl font-bold">{analyticsData.counts.resumeEvents}</div>
             </CardContent>
           </Card>
           <Card>
@@ -47,143 +103,45 @@ export default async function AnalyticsDashboardPage() {
               <CardTitle>Interactions</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-4xl font-bold">Loading...</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }
-
-  try {
-    // Test database connection first
-    await modelPrisma.$queryRaw`SELECT 1`
-    
-    // Get counts from the model database
-    const [userCount, resumeEventCount, interactionCount] = await Promise.all([
-      modelPrisma.user.count(),
-      modelPrisma.resumeEvent.count(),
-      modelPrisma.interaction.count()
-    ])
-
-    // Get recent resume events
-    const recentResumeEvents = await modelPrisma.resumeEvent.findMany({
-      take: 10,
-      orderBy: {
-        timestamp: "desc",
-      },
-    }) as ResumeEvent[]
-
-    // Get recent interactions
-    const recentInteractions = await modelPrisma.interaction.findMany({
-      take: 10,
-      orderBy: {
-        timestamp: "desc",
-      },
-    }) as Interaction[]
-
-    // Get event type distribution
-    const eventTypeDistribution = await modelPrisma.$queryRaw<{ event_type: string; count: number }[]>`
-      SELECT "event_type", COUNT(*) as count
-      FROM "resume_events"
-      GROUP BY "event_type"
-      ORDER BY count DESC
-    `
-
-    return (
-      <div className="container mx-auto py-8">
-        <h1 className="text-3xl font-bold mb-6">Analytics Dashboard</h1>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Users</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold">{userCount}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Resume Events</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold">{resumeEventCount}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Interactions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold">{interactionCount}</p>
+              <div className="text-3xl font-bold">{analyticsData.counts.interactions}</div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Event Type Distribution</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {eventTypeDistribution.map((item) => (
-                  <li key={item.event_type} className="flex justify-between">
-                    <span>{item.event_type}</span>
-                    <span className="font-bold">{item.count}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-4">Event Type Distribution</h2>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analyticsData.eventTypeDistribution}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="event_type" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Resume Events</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {recentResumeEvents.map((event) => (
-                  <li key={event.id} className="border-b pb-2">
-                    <div className="flex justify-between">
-                      <span className="font-medium">{event.event_type}</span>
-                      <span className="text-sm text-gray-500">{new Date(event.timestamp).toLocaleString()}</span>
-                    </div>
-                    <div className="text-sm text-gray-600">Resume ID: {event.resume_id || "N/A"}</div>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Interactions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {recentInteractions.map((interaction) => (
-                  <li key={interaction.id} className="border-b pb-2">
-                    <div className="flex justify-between">
-                      <span className="font-medium">{interaction.element}</span>
-                      <span className="text-sm text-gray-500">{new Date(interaction.timestamp).toLocaleString()}</span>
-                    </div>
-                    <div className="text-sm text-gray-600">Action: {interaction.action}</div>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Recent Resume Events</h2>
+            <DataTable 
+              columns={eventColumns} 
+              data={analyticsData.recentResumeEvents}
+              pageSize={5}
+            />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Recent Interactions</h2>
+            <DataTable 
+              columns={interactionColumns} 
+              data={analyticsData.recentInteractions}
+              pageSize={5}
+            />
+          </div>
         </div>
-      </div>
-    )
-  } catch (error) {
-    console.error("Error in AnalyticsDashboardPage:", error)
-    throw error // Re-throw the error to fail the build
-  }
+      </Suspense>
+    </div>
+  )
 }

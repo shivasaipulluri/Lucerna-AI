@@ -9,13 +9,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { FileText, Upload, Plus, Clock, Settings } from "lucide-react"
 import { getResumeHistory } from "./actions"
 import { formatDistanceToNow } from "date-fns"
+import { Resume } from "@/lib/types"
 
 interface DashboardContentProps {
   onSwitchToUpload?: () => void
 }
 
 export function DashboardContent({ onSwitchToUpload }: DashboardContentProps) {
-  const [resumes, setResumes] = useState<any[]>([])
+  const [resumes, setResumes] = useState<Resume[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -38,7 +39,7 @@ export function DashboardContent({ onSwitchToUpload }: DashboardContentProps) {
             // If the data is the same (same length and IDs), don't update
             if (
               prevResumes.length === result.data.length &&
-              prevResumes.every((resume) => result.data.some((newResume: { id: any }) => newResume.id === resume.id))
+              prevResumes.every((resume) => result.data.some((newResume: Resume) => newResume.id === resume.id))
             ) {
               return prevResumes
             }

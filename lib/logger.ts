@@ -1,9 +1,11 @@
+import { InteractionMetadata } from "@/app/admin/analytics/actions"
+
 /**
  * Client-side helper to log events to the model training database
  * @param type The type of event
  * @param data The event data
  */
-export async function logTraining(type: string, data: Record<string, any>) {
+export async function logTraining(type: string, data: InteractionMetadata) {
   try {
     // Don't block the UI thread
     await fetch("/api/log", {

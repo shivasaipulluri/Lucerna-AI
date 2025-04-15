@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Download, Copy, Check } from "lucide-react"
 import { logInteractionEvent, logResumeDownloadEvent, logResumeCopyEvent } from "@/lib/analytics-hooks"
+import { InteractionMetadata } from "@/app/admin/analytics/actions"
 
 interface ResumeViewAnalyticsProps {
   resumeId: string
@@ -11,6 +12,7 @@ interface ResumeViewAnalyticsProps {
   version: number
   onCopy: () => void
   onDownload: () => void
+  metadata?: InteractionMetadata
 }
 
 export function ResumeViewAnalytics({ resumeId, userId, version, onCopy, onDownload }: ResumeViewAnalyticsProps) {

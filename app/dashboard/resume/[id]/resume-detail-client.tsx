@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useState, useTransition, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -59,8 +59,8 @@ function formatDate(dateString: string | Date) {
   }).format(date)
 }
 
-// Define tailoringConfigs
-const tailoringConfigs = {
+// Define tailoringConfigs with proper type
+const tailoringConfigs: Record<string, { name: string; description: string }> = {
   basic: {
     name: "Basic",
     description: "Focuses on essential keywords and formatting.",
@@ -75,75 +75,78 @@ const tailoringConfigs = {
   },
 }
 
-export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
-  // Log the resumeId for debugging
-  console.log("Client component resumeId:", resumeId)
+interface Resume {
+  id: string
+  user_id: string
+  resume_text: string
+  job_description: string
+  modified_resume: string | null
+  version: number
+  ats_score: number | null
+  jd_score: number | null
+  tailoring_mode: string | null
+  created_at: Date
+}
 
-  const [resume, setResume] = useState<any>(null)
+export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
+  const [resume, setResume] = useState<Resume | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [showComparison, setShowComparison] = useState(false)
   const [previousVersion, setPreviousVersion] = useState<string | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
   const { toast } = useToast()
+  const [retryCount, setRetryCount] = useState(0)
+  const maxRetries = 3
 
-  // Fetch resume data
-  useEffect(() => {
-    let isMounted = true
-
-    async function fetchResume() {
-      if (!resumeId) {
-        setError("Invalid resume ID")
-        setLoading(false)
-        return
+  const fetchResume = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await fetch(`/api/resumes/${resumeId}`)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
-
-      // Only fetch if we're in a loading state to prevent repeated calls
-      if (!loading) return
-
-      try {
-        console.log("Fetching resume with ID:", resumeId)
-        const result = await getResumeById(resumeId)
-        console.log("Resume fetch result:", result)
-
-        if (!isMounted) return
-
-        if (!result.success || !result.data) {
-          setError(result.error || "Failed to load resume")
-          setLoading(false)
-          return
-        }
-
-        // Compare with current state to avoid unnecessary updates
-        setResume((prevResume) => {
-          // If it's the same resume with the same version, don't update
-          if (prevResume && prevResume.id === result.data.id && prevResume.version === result.data.version) {
-            return prevResume
+      
+      const data = await response.json()
+      if (!data) {
+        throw new Error("No resume data received")
+      }
+      
+      setResume(data)
+    } catch (error) {
+      console.error("Error fetching resume:", error)
+      
+      if (error instanceof Error) {
+        if (error.message.includes('network')) {
+          if (retryCount < maxRetries) {
+            setRetryCount(prev => prev + 1)
+            setTimeout(fetchResume, 1000 * retryCount)
+            return
           }
-          return result.data
-        })
-
-        // Store the current version's modified resume for comparison if refinement happens
-        if (result.data.modified_resume) {
-          setPreviousVersion(result.data.modified_resume)
+          setError("Network error. Please check your connection and try again.")
+        } else if (error.message.includes('not found')) {
+          setError("Resume not found. It may have been deleted.")
+        } else if (error.message.includes('authenticated')) {
+          setError("Please log in to view this resume.")
+        } else {
+          setError("An unexpected error occurred. Please try again later.")
         }
-      } catch (err: any) {
-        if (!isMounted) return
-        console.error("Error in fetchResume:", err)
-        setError(err.message || "An error occurred")
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
+      } else {
+        setError("An unknown error occurred")
       }
+    } finally {
+      setLoading(false)
     }
+  }, [resumeId, retryCount])
 
+  useEffect(() => {
     fetchResume()
-
-    return () => {
-      isMounted = false
-    }
-  }, [resumeId, loading])
+  }, [fetchResume])
 
   // Handle refine again
   const handleRefine = () => {
@@ -163,10 +166,10 @@ export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
         })
 
         const result = await runTailoringAnalysis(
-          resume.modified_resume || resume.resume_text, // Use modified resume if available
+          resume.modified_resume || resume.resume_text,
           resume.job_description,
           resumeId,
-          true, // This is a refinement
+          true,
         )
 
         if (!result.success) {
@@ -182,14 +185,14 @@ export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
         const updatedResult = await getResumeById(resumeId)
         if (updatedResult.success && updatedResult.data) {
           setResume(updatedResult.data)
-          setShowComparison(true) // Automatically show comparison after refinement
+          setShowComparison(true)
 
-          // Log the version number
-          console.log(`Resume refined to version ${updatedResult.data.version}`)
+          const atsScore = updatedResult.data.ats_score ?? 0
+          const jdScore = updatedResult.data.jd_score ?? 0
 
           toast({
             title: "Resume refined successfully",
-            description: `Resume updated to version ${updatedResult.data.version}. ATS: ${updatedResult.data.ats_score}%, JD: ${updatedResult.data.jd_score}%.`,
+            description: `Resume updated to version ${updatedResult.data.version}. ATS: ${atsScore}%, JD: ${jdScore}%.`,
           })
         }
       } catch (err: any) {
@@ -206,12 +209,34 @@ export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
     return <div>Loading resume details...</div>
   }
 
-  if (error || !resume) {
+  if (error) {
     return (
       <div className="text-center">
         <h2 className="text-2xl font-bold mb-2">Resume Not Found</h2>
         <p className="text-muted-foreground mb-6">
-          {error || "The resume you're looking for doesn't exist or you don't have permission to view it."}
+          {error}
+        </p>
+        {retryCount < maxRetries && (
+          <Button
+            onClick={fetchResume}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-medium px-4 py-2 flex items-center gap-2"
+          >
+            <span>Retry</span>
+          </Button>
+        )}
+        <Button asChild>
+          <Link href="/dashboard">Return to Dashboard</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  if (!resume) {
+    return (
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-2">No Resume Data</h2>
+        <p className="text-muted-foreground mb-6">
+          The resume data could not be loaded. Please try again later.
         </p>
         <Button asChild>
           <Link href="/dashboard">Return to Dashboard</Link>
@@ -220,80 +245,95 @@ export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
     )
   }
 
-  const needsImprovement = resume.ats_score < 95 || resume.jd_score < 95
-
-  // Get the tailoring mode config
+  const atsScore = resume.ats_score ?? 0
+  const jdScore = resume.jd_score ?? 0
+  const needsImprovement = atsScore < 95 || jdScore < 95
   const tailoringMode = resume.tailoring_mode || "basic"
   const modeConfig = tailoringConfigs[tailoringMode] || tailoringConfigs.basic
+  const isPerfectScore = atsScore >= 95 && jdScore >= 95
 
-  // Add this function inside the component, before the return statement
-  const isPerfectScore = resume.ats_score >= 95 && resume.jd_score >= 95
+  // Get the tailoring mode config
+  const tailoringModeConfig = tailoringConfigs[tailoringMode] || tailoringConfigs.basic
 
   // Add these download functions before the return statement
-  const downloadAsText = () => {
-    if (!resume?.modified_resume) return
+  const downloadAsText = useCallback(() => {
+    if (!resume?.modified_resume) {
+      toast({
+        title: "Error",
+        description: "No modified resume available to download",
+        variant: "destructive",
+      })
+      return
+    }
 
-    const blob = new Blob([resume.modified_resume], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `tailored-resume-v${resume.version}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
+    try {
+      setIsDownloading(true)
+      const blob = new Blob([resume.modified_resume], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `tailored-resume-v${resume.version}.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Error downloading text file:", err)
+      toast({
+        title: "Download Failed",
+        description: "Failed to download resume as text file",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDownloading(false)
+    }
+  }, [resume, toast])
 
-  const downloadAsPdf = () => {
-    if (!resume?.modified_resume) return
+  const downloadAsPdf = useCallback(async () => {
+    if (!resume?.modified_resume) {
+      toast({
+        title: "Error",
+        description: "No modified resume available to download",
+        variant: "destructive",
+      })
+      return
+    }
 
-    // Check if we're in the browser
     if (typeof window === "undefined") return
 
     try {
-      // Dynamically import html2pdf only when the function is called
-      import("html2pdf.js")
-        .then((html2pdfModule) => {
-          const html2pdf = html2pdfModule.default || html2pdfModule
+      setIsDownloading(true)
+      const html2pdfModule = await import("html2pdf.js")
+      const html2pdf = html2pdfModule.default || html2pdfModule
 
-          // Create a temporary div to hold the resume content
-          const element = document.createElement("div")
-          element.innerHTML = `
-          <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.5;">
-            <h1 style="text-align: center; margin-bottom: 20px;">Tailored Resume</h1>
-            <div style="white-space: pre-wrap;">${resume.modified_resume}</div>
-          </div>
-        `
+      const element = document.createElement("div")
+      element.innerHTML = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.5;">
+          <h1 style="text-align: center; margin-bottom: 20px;">Tailored Resume</h1>
+          <div style="white-space: pre-wrap;">${resume.modified_resume}</div>
+        </div>
+      `
 
-          // Configure html2pdf options
-          const opt = {
-            margin: [15, 15],
-            filename: `tailored-resume-v${resume.version}.pdf`,
-            image: { type: "jpeg", quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-          }
+      const opt = {
+        margin: [15, 15] as [number, number],
+        filename: `tailored-resume-v${resume.version}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      }
 
-          // Generate PDF
-          html2pdf().set(opt).from(element).save()
-        })
-        .catch((err) => {
-          console.error("Failed to load PDF generator:", err)
-          toast({
-            title: "PDF Generation Failed",
-            description: "The PDF generator library couldn't be loaded. Please try the text download option instead.",
-            variant: "destructive",
-          })
-        })
+      await html2pdf().set(opt).from(element).save()
     } catch (err) {
       console.error("Error generating PDF:", err)
       toast({
         title: "PDF Generation Failed",
-        description: "There was an error generating the PDF. Please try the text download option instead.",
+        description: "Failed to generate PDF. Please try the text download option instead.",
         variant: "destructive",
       })
+    } finally {
+      setIsDownloading(false)
     }
-  }
+  }, [resume, toast])
 
   const downloadAsDocx = () => {
     // This is a placeholder for future implementation
@@ -339,7 +379,7 @@ export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
                             <Info className="h-3 w-3 ml-1 text-gray-400 cursor-help" />
                           </ScoreTooltip>
                         </div>
-                        {resume.ats_score >= 95 ? (
+                        {atsScore >= 95 ? (
                           <CheckCircle className="h-4 w-4 text-green-500" />
                         ) : (
                           <AlertCircle className="h-4 w-4 text-amber-500" />
@@ -348,14 +388,14 @@ export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
                       <div className="mt-1">
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
-                            className={`h-2 rounded-full ${resume.ats_score >= 95 ? "bg-green-500" : "bg-amber-500"}`}
-                            style={{ width: `${resume.ats_score}%` }}
+                            className={`h-2 rounded-full ${atsScore >= 95 ? "bg-green-500" : "bg-amber-500"}`}
+                            style={{ width: `${atsScore}%` }}
                           ></div>
                         </div>
                         <p
-                          className={`text-lg font-bold mt-1 ${resume.ats_score >= 95 ? "text-green-600" : "text-amber-600"}`}
+                          className={`text-lg font-bold mt-1 ${atsScore >= 95 ? "text-green-600" : "text-amber-600"}`}
                         >
-                          {resume.ats_score}%
+                          {atsScore}%
                         </p>
                       </div>
                     </div>
@@ -368,7 +408,7 @@ export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
                             <Info className="h-3 w-3 ml-1 text-gray-400 cursor-help" />
                           </ScoreTooltip>
                         </div>
-                        {resume.jd_score >= 95 ? (
+                        {jdScore >= 95 ? (
                           <CheckCircle className="h-4 w-4 text-green-500" />
                         ) : (
                           <AlertCircle className="h-4 w-4 text-amber-500" />
@@ -377,22 +417,22 @@ export function ResumeDetailClient({ resumeId }: { resumeId: string }) {
                       <div className="mt-1">
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
-                            className={`h-2 rounded-full ${resume.jd_score >= 95 ? "bg-green-500" : "bg-amber-500"}`}
-                            style={{ width: `${resume.jd_score}%` }}
+                            className={`h-2 rounded-full ${jdScore >= 95 ? "bg-green-500" : "bg-amber-500"}`}
+                            style={{ width: `${jdScore}%` }}
                           ></div>
                         </div>
                         <p
-                          className={`text-lg font-bold mt-1 ${resume.jd_score >= 95 ? "text-green-600" : "text-amber-600"}`}
+                          className={`text-lg font-bold mt-1 ${jdScore >= 95 ? "text-green-600" : "text-amber-600"}`}
                         >
-                          {resume.jd_score}%
+                          {jdScore}%
                         </p>
                       </div>
                     </div>
 
                     <div className="flex flex-col">
                       <span className="text-sm font-medium">Tailoring Mode</span>
-                      <p className="text-lg font-bold mt-1">{modeConfig.name}</p>
-                      <p className="text-xs text-gray-500 truncate">{modeConfig.description}</p>
+                      <p className="text-lg font-bold mt-1">{tailoringModeConfig.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{tailoringModeConfig.description}</p>
                     </div>
 
                     <div className="flex flex-col">
