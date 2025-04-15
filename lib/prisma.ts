@@ -1,8 +1,13 @@
-import { PrismaClient } from "../generated/primary_client"
+import { PrismaClient } from "../prisma/generated/primary_client"
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+declare global {
+  var prisma: PrismaClient | undefined
+}
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
-const globalForPrisma = global as unknown as {
+const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 

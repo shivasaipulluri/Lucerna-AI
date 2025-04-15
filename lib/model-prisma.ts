@@ -1,13 +1,18 @@
-import { PrismaClient as ModelPrismaClient } from "../generated/model_client"
+import { PrismaClient as ModelPrismaClient } from "../prisma/generated/model_client"
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+declare global {
+  var modelPrisma: ModelPrismaClient | undefined
+}
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
-const globalForPrisma = global as unknown as {
+const globalForPrisma = globalThis as unknown as {
   modelPrisma: ModelPrismaClient | undefined
 }
 
 // Add debug logging to verify the environment variable is set
-console.log("[DEBUG] MODEL_DATABASE_URL available:", !!process.env.MODEL_DATABASE_URL)
+console.log("[DEBUG] MODEL_DATABASE_URL available:", !!process.env?.MODEL_DATABASE_URL)
 
 // Let's add more debug logging to see what's happening with the model database
 console.log(
@@ -17,7 +22,7 @@ console.log(
 
 // Update the PrismaClient creation to use ModelPrismaClient
 export const modelPrisma =
-  globalForPrisma.modelPrisma ||
+  globalForPrisma.modelPrisma ??
   new ModelPrismaClient({
     log: ["query", "error", "warn"],
   })
@@ -35,7 +40,7 @@ export async function testModelPrismaConnection() {
     console.log("Available models in modelPrisma:", Object.keys(modelPrisma))
 
     // Specifically check for the TailoringAnalytics model
-    if (modelPrisma.tailoringAnalytics) {
+    if ('tailoringAnalytics' in modelPrisma) {
       console.log("✅ TailoringAnalytics model is available in modelPrisma")
     } else {
       console.log("❌ TailoringAnalytics model is NOT available in modelPrisma")
