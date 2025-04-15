@@ -17,6 +17,44 @@ interface Interaction {
 }
 
 export default async function AnalyticsDashboardPage() {
+  // Check if we're in a build environment
+  const isBuild = process.env.NEXT_PHASE === "phase-production-build"
+  
+  if (isBuild) {
+    // During build, return a static version of the page
+    return (
+      <div className="container mx-auto py-8">
+        <h1 className="text-3xl font-bold mb-6">Analytics Dashboard</h1>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Users</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-4xl font-bold">Loading...</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Resume Events</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-4xl font-bold">Loading...</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Interactions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-4xl font-bold">Loading...</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   try {
     // Test database connection first
     await modelPrisma.$queryRaw`SELECT 1`
