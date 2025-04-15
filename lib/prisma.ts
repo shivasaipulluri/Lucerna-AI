@@ -18,7 +18,15 @@ export const prisma =
       db: {
         url: process.env.DATABASE_URL
       }
-    }
+    },
+    // Force the use of linux-musl-openssl-3.0.x in production
+    ...(process.env.NODE_ENV === 'production' ? {
+      __internal: {
+        engine: {
+          binaryTarget: 'linux-musl-openssl-3.0.x'
+        }
+      }
+    } : {})
   })
 
 // Export primaryPrisma as an alias for prisma
@@ -26,15 +34,13 @@ export const primaryPrisma = prisma
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
 
-// Add a simple test function to check if prisma is working
+// Add a simple test function to check if the Prisma connection is working
 export async function testPrismaConnection() {
   try {
-    // Just run a simple query to test the connection
-    const result = await prisma.$queryRaw`SELECT 1 as test`
-    console.log("Prisma connection test successful:", result)
-    return true
+    await prisma.$queryRaw`SELECT 1`
+    console.log("[DEBUG] Prisma connection test successful")
   } catch (error) {
-    console.error("Prisma connection test failed:", error)
-    return false
+    console.error("[DEBUG] Prisma connection test failed:", error)
+    throw error
   }
 }

@@ -35,10 +35,23 @@ const nextConfig = {
       config.resolve.fallback.fs = false;
       config.resolve.fallback.path = false;
 
-      config.externals = config.externals || [];
-      config.externals.push({
-        '@prisma/client': 'commonjs @prisma/client',
-      });
+      // Add copy-webpack-plugin configuration
+      const CopyPlugin = require('copy-webpack-plugin');
+      config.plugins = config.plugins || [];
+      config.plugins.push(
+        new CopyPlugin({
+          patterns: [
+            {
+              from: 'node_modules/@prisma/client',
+              to: 'prisma/client',
+            },
+            {
+              from: 'prisma/generated',
+              to: 'prisma/generated',
+            },
+          ],
+        })
+      );
     }
     return config;
   },
