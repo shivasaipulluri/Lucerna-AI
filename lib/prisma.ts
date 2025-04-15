@@ -16,7 +16,7 @@ export const prisma =
     log: ["query", "error", "warn"],
     datasources: {
       db: {
-        url: process.env.DATABASE_URL + "?connect_timeout=60"
+        url: process.env.DATABASE_URL
       }
     }
   })

@@ -1,4 +1,4 @@
-import pdfParse from "pdf-parse/lib/pdf-parse.js"
+import pdfParse from "pdf-parse"
 
 /**
  * Server-side PDF text extraction from buffer
@@ -7,11 +7,8 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js"
  */
 export async function extractTextFromPDFBuffer(buffer: Buffer): Promise<string> {
   try {
-    // Parse the PDF without loading test files
-    const data = await pdf(buffer, {
-      // Skip loading test files
-      max: 0,
-    })
+    // Parse the PDF
+    const data = await pdfParse(buffer)
 
     // Return the text content
     return data.text || "No text content found in PDF"
