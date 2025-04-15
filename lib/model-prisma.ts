@@ -28,7 +28,7 @@ export async function testModelPrismaConnection() {
   try {
     // Just run a simple query to test the connection
     const result = await modelPrisma.$queryRaw`SELECT 1 as test`
-    console.log("Model Prisma connection test result:", result)
+    console.log("Model Prisma connection test successful:", result)
     return true
   } catch (error) {
     console.error("Model Prisma connection test failed:", error)

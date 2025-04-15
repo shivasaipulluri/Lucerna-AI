@@ -6,10 +6,14 @@ const globalForPrisma = global as unknown as {
   prisma: PrismaClient | undefined
 }
 
+// Add debug logging to verify the environment variable is set
+console.log("[DEBUG] DATABASE_URL available:", !!process.env.DATABASE_URL)
+
+// Create a new PrismaClient instance
 export const prisma =
-  globalForPrisma.prisma ??
+  globalForPrisma.prisma ||
   new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+    log: ["query", "error", "warn"],
     datasources: {
       db: {
         url: process.env.DATABASE_URL + "?connect_timeout=60"
@@ -27,7 +31,7 @@ export async function testPrismaConnection() {
   try {
     // Just run a simple query to test the connection
     const result = await prisma.$queryRaw`SELECT 1 as test`
-    console.log("Prisma connection test result:", result)
+    console.log("Prisma connection test successful:", result)
     return true
   } catch (error) {
     console.error("Prisma connection test failed:", error)
