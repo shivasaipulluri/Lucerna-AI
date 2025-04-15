@@ -1,9 +1,9 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient } from "../generated/primary_client";
 
 async function main() {
   console.log("Creating tailoring_analytics table...")
 
-  const prisma = new PrismaClient()
+  const prisma = new PrismaClient();
 
   try {
     // Check if table exists
@@ -49,7 +49,8 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error("Script error:", e)
-  process.exit(1)
-})
+main()
+  .catch((e) => {
+    console.error("Script error:", e);
+    process.exit(1);
+  });

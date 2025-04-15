@@ -1,8 +1,7 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient } from "../generated/primary_client"
 
 async function main() {
   console.log("Adding daily usage tracking fields to users table...")
-
   const prisma = new PrismaClient()
 
   try {
