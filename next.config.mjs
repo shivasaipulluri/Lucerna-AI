@@ -1,3 +1,7 @@
+import pkg from 'next'
+const { NextConfig } = pkg
+import CopyPlugin from 'copy-webpack-plugin'
+
 let userConfig = undefined;
 try {
   // Try to import ESM first
@@ -36,7 +40,6 @@ const nextConfig = {
       config.resolve.fallback.path = false;
 
       // Add copy-webpack-plugin configuration
-      const CopyPlugin = require('copy-webpack-plugin');
       config.plugins = config.plugins || [];
       config.plugins.push(
         new CopyPlugin({
@@ -48,6 +51,10 @@ const nextConfig = {
             {
               from: 'prisma/generated',
               to: 'prisma/generated',
+            },
+            {
+              from: 'node_modules/.prisma/client',
+              to: 'prisma/client',
             },
           ],
         })

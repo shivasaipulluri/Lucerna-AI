@@ -18,15 +18,7 @@ export const prisma =
       db: {
         url: process.env.DATABASE_URL
       }
-    },
-    // Force the use of linux-musl-openssl-3.0.x in production
-    ...(process.env.NODE_ENV === 'production' ? {
-      __internal: {
-        engine: {
-          binaryTarget: 'linux-musl-openssl-3.0.x'
-        }
-      }
-    } : {})
+    }
   })
 
 // Export primaryPrisma as an alias for prisma

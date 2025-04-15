@@ -18,15 +18,7 @@ export const modelPrisma =
       db: {
         url: process.env.MODEL_DATABASE_URL
       }
-    },
-    // Force the use of linux-musl-openssl-3.0.x in production
-    ...(process.env.NODE_ENV === 'production' ? {
-      __internal: {
-        engine: {
-          binaryTarget: 'linux-musl-openssl-3.0.x'
-        }
-      }
-    } : {})
+    }
   })
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.modelPrisma = modelPrisma
