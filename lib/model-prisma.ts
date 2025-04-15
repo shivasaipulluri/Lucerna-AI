@@ -4,10 +4,16 @@ import { PrismaClient } from "@prisma/client"
 // exhausting your database connection limit.
 const globalForPrisma = global as unknown as {
   modelPrisma: PrismaClient | undefined
+
+
+// PrismaClient is attached to the `global` object in development to prevent
+// exhausting your database connection limit.
+const globalForPrisma = globalThis as unknown as {
+  modelPrisma: ModelPrismaClient | undefined
 }
 
 // Add debug logging to verify the environment variable is set
-console.log("[DEBUG] MODEL_DATABASE_URL available:", !!process.env.MODEL_DATABASE_URL)
+console.log("[DEBUG] MODEL_DATABASE_URL available:", !!process.env?.MODEL_DATABASE_URL)
 
 // Create a new PrismaClient instance for the model database
 export const modelPrisma =
@@ -18,6 +24,7 @@ export const modelPrisma =
         url: process.env.MODEL_DATABASE_URL!,
       },
     },
+
     log: ["query", "error", "warn"],
   })
 

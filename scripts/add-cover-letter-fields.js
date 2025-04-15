@@ -1,11 +1,11 @@
-const { PrismaClient } = require("@prisma/client")
+const { PrismaClient } = require("../generated/primary_client");
 
 async function main() {
-  console.log("Adding additional fields to cover_letters table...")
+  console.log("Adding additional fields to cover_letters table...");
 
-  const prisma = new PrismaClient()
+  const prisma = new PrismaClient();
 
-  try {
+  try {  
     // Check if table exists
     const tableExists = await prisma.$queryRaw`
       SELECT EXISTS (
@@ -14,10 +14,10 @@ async function main() {
         AND table_name = 'cover_letters'
       );
     `
-
+    
     if (!tableExists[0].exists) {
-      console.log("cover_letters table doesn't exist yet, will be created when needed")
-      return
+      console.log("cover_letters table doesn't exist yet, will be created when needed");
+      return;
     }
 
     // Add new columns if they don't exist
@@ -28,16 +28,16 @@ async function main() {
       ADD COLUMN IF NOT EXISTS "feedback" TEXT,
       ADD COLUMN IF NOT EXISTS "golden_passed" BOOLEAN;
     `
-
-    console.log("cover_letters table updated successfully!")
+    
+    console.log("cover_letters table updated successfully!");
   } catch (error) {
-    console.error("Error updating cover_letters table:", error)
+    console.error("Error updating cover_letters table:", error);
   } finally {
-    await prisma.$disconnect()
+    await prisma.$disconnect();
   }
 }
 
 main().catch((e) => {
-  console.error("Script error:", e)
-  process.exit(1)
-})
+  console.error("Script error:", e);
+  process.exit(1);
+});

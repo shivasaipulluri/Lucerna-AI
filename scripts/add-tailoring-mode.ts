@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient } from "../generated/primary_client";
 
 async function main() {
-  console.log("Adding tailoring_mode column to users table...")
+  console.log("Adding tailoring_mode column to users table...");
 
   const prisma = new PrismaClient()
 
@@ -12,12 +12,12 @@ async function main() {
     console.log("Column added successfully!")
   } catch (error) {
     console.error("Error adding column:", error)
-  } finally {
+  } finally {      
     await prisma.$disconnect()
   }
 }
 
 main().catch((e) => {
-  console.error("Script error:", e)
-  process.exit(1)
-})
+    console.error("Script error:", e);
+    process.exit(1);
+  });
