@@ -30,6 +30,11 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     if (isServer) {
       // Ensure the Prisma Client and Query Engine are included in the server bundle
+      config.resolve = config.resolve || {};
+      config.resolve.fallback = config.resolve.fallback || {};
+      config.resolve.fallback.fs = false;
+      config.resolve.fallback.path = false;
+
       config.externals = config.externals || [];
       config.externals.push({
         '@prisma/client': 'commonjs @prisma/client',
